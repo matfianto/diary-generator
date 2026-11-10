@@ -1,0 +1,26 @@
+{
+  "name": "Daily Journal Format Generator",
+  "short_name": "Daily Journal",
+  "description": "Aplikasi untuk mencatat dan merefleksikan kegiatan harian secara terstruktur.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#1db954",
+  "orientation": "any",
+  "lang": "id",
+  "icons": [
+    {
+      "src": "adaptive-foreground.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "adaptive-foreground.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["productivity", "lifestyle"]
+}

@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="id" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Journal</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="application-name" content="Daily Journal">
+    <meta name="description" content="Aplikasi untuk mencatat dan merefleksikan kegiatan harian secara terstruktur.">
+    <meta name="theme-color" content="#1db954">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Daily Journal">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="adaptive-foreground.png">
+    <link rel="icon" type="image/png" href="adaptive-foreground.png">
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#1db954',
+                        primaryHover: '#1ed760',
+                        danger: '#ef4444',
+                        dangerHover: '#dc2626'
+                    },
+                    animation: {
+                        marquee: 'marquee 12s linear infinite',
+                    },
+                    keyframes: {
+                        marquee: {
+                            '0%': { transform: 'translateX(100%)' },
+                            '100%': { transform: 'translateX(-100%)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Phosphor Icons for aesthetic icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Digital-7 Font -->
+    <link href="https://fonts.cdnfonts.com/css/digital-7-mono" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-digital { font-family: 'Digital-7 Mono', monospace; }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        
+        /* Custom Energy States */
+        .energy-blink {
+            animation: blink-danger 0.5s infinite;
+            padding: 2px 8px;
+            border-radius: 6px;
+            color: #ffffff;
+            display: inline-block;
+            margin-left: 4px;
+            font-weight: 600;
+        }
+        @keyframes blink-danger {
+            0%, 100% { background-color: #ef4444; }
+            50% { background-color: #000000; }
+        }
+        .energy-neon {
+            background-color: #1db954;
+            color: #ffffff;
+            text-shadow: 0 0 5px rgba(255,255,255,0.8);
+            border: 1px solid #1ed760;
+            padding: 2px 8px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-left: 4px;
+            font-weight: 600;
+            animation: pulse-neon 1.5s infinite alternate;
+        }
+        @keyframes pulse-neon {
+            from { box-shadow: 0 0 5px #1db954, 0 0 10px #1db954; }
+            to { box-shadow: 0 0 10px #1db954, 0 0 20px #1db954, 0 0 30px #1db954; }
+        }
+
+        /* Auto-save badge */
+        #autoSaveBadge {
+            transition: opacity 0.4s ease;
+        }
+        #autoSaveBadge.saving {
+            opacity: 1;
+        }
+        #autoSaveBadge.saved {
+            opacity: 1;
+        }
+        #autoSaveBadge.hidden-fade {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* PWA install button */
+        #btnInstallPWA {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100 transition-colors duration-300 min-h-screen pb-12">
+
+    <header class="sticky top-0 z-10 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <i id="btnScrollBottom" class="ph ph-book-open-text text-2xl text-primary dark:text-green-400 shrink-0 cursor-pointer hover:opacity-80 transition-opacity" title="Scroll ke Paling Bawah"></i>
+            
+            <div class="flex-1 overflow-hidden relative flex items-center h-full" style="mask-image: linear-gradient(to right, transparent, black 15px, black calc(100% - 15px), transparent); -webkit-mask-image: linear-gradient(to right, transparent, black 15px, black calc(100% - 15px), transparent);">
+                <div class="w-full animate-marquee whitespace-nowrap">
+                    <h1 class="text-xl font-bold tracking-tight inline-block text-primary dark:text-green-400">Daily Journal Format Generator</h1>
+                </div>
+            </div>
+
+            <!-- Auto-Save Badge -->
+            <span id="autoSaveBadge" class="hidden-fade flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full shrink-0 select-none" title="Status simpan otomatis">
+                <i id="autoSaveIcon" class="ph ph-cloud-check text-sm"></i>
+                <span id="autoSaveText">Tersimpan</span>
+            </span>
+
+            <!-- PWA Install Button -->
+            <button id="btnInstallPWA" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary shrink-0" aria-label="Install Aplikasi" title="Install sebagai aplikasi">
+                <i class="ph ph-device-mobile-camera text-xl text-primary dark:text-green-400"></i>
+            </button>
+
+            <button id="themeToggle" class="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-primary shrink-0" aria-label="Toggle Dark Mode">
+                <i id="themeIcon" class="ph ph-moon text-xl"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+        
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 sm:p-8 space-y-8">
+            
+            <!-- SECTION 1: Date & Time, Mood, Energy -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Date -->
+                <div class="space-y-2">
+                    <!-- Real-Time Clock Panel -->
+                    <div class="bg-slate-900 px-4 py-3 rounded-xl border border-slate-700 shadow-inner flex flex-col items-center justify-center mb-4 text-center">
+                        <span class="text-[10px] text-slate-400 font-medium uppercase tracking-widest mb-1">Real-Time Clock</span>
+                        <span id="realTimeClock" class="font-digital text-primary text-2xl md:text-3xl lg:text-4xl tracking-widest" style="text-shadow: 0 0 10px rgba(29, 185, 84, 0.6);">
+                            --/--/---- --:--:--
+                        </span>
+                    </div>
+
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Tanggal & Waktu</label>
+                    <input type="datetime-local" id="inputDate" style="color-scheme: dark light;"
+                        class="w-full px-4 py-2 mt-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary outline-none transition-colors text-slate-800 dark:text-slate-200">
+                </div>
+
+                <!-- Energi -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Energi (<span id="energyValue" class="text-primary dark:text-green-400 font-bold text-base">50%</span>)
+                            <span id="energyMessage"> : Energi terbatas, masih bisa beraktivitas ringan 🪫</span>
+                        </label>
+                    </div>
+                    <div class="relative pt-1">
+                        <input type="range" id="inputEnergy" min="0" max="100" value="50" step="1"
+                            class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-primary focus:outline-none focus:ring-2 focus:ring-primary/50">
+                        <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-2 px-1">
+                            <span>0%</span>
+                            <span>25%</span>
+                            <span>50%</span>
+                            <span>75%</span>
+                            <span>100%</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-5 gap-2 mt-4">
+                            <button type="button" onclick="adjustEnergy(-10)" class="w-full py-2 text-sm font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">-10</button>
+                            <button type="button" onclick="adjustEnergy(-5)" class="w-full py-2 text-sm font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">-5</button>
+                            <button type="button" onclick="setEnergy(50)" class="w-full py-2 text-sm font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">50%</button>
+                            <button type="button" onclick="adjustEnergy(5)" class="w-full py-2 text-sm font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">+5</button>
+                            <button type="button" onclick="adjustEnergy(10)" class="w-full py-2 text-sm font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50">+10</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mood -->
+                <div class="space-y-2 md:col-span-2">
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300">Mood Hari Ini</label>
+                    <div class="flex flex-wrap gap-2 sm:gap-3 w-full" id="moodContainer">
+                        <!-- Mood buttons injected via JS -->
+                    </div>
+                    <input type="hidden" id="selectedMood" value="0">
+                </div>
+            </div>
+
+            <hr class="border-slate-200 dark:border-slate-700">
+            
+            <div class="space-y-4">
+                <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Cerita Hari Ini</h2>
+                
+                <div class="space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                        <span class="text-sm font-medium text-slate-500 dark:text-slate-400 sm:w-24 shrink-0">Awalnya...</span>
+                        <input type="text" id="story1" placeholder="ceritakan apa yang terjadi di awal..." 
+                            class="flex-1 w-full min-w-0 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary outline-none transition-colors">
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                        <span class="text-sm font-medium text-slate-500 dark:text-slate-400 sm:w-24 shrink-0">Kemudian...</span>
+                        <input type="text" id="story2" placeholder="lalu apa yang terjadi selanjutnya..." 
+                            class="flex-1 w-full min-w-0 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary outline-none transition-colors">
+                    </div>
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                        <span class="text-sm font-medium text-slate-500 dark:text-slate-400 sm:w-24 shrink-0">Akhirnya...</span>
+                        <input type="text" id="story3" placeholder="dan bagaimana akhirnya?" 
+                            class="flex-1 w-full min-w-0 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary outline-none transition-colors">
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-slate-200 dark:border-slate-700">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Highlight -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">Highlight Hari Ini</label>
+                    </div>
+                    <div id="highlight-container" class="space-y-2"></div>
+                    <button onclick="addInput('highlight', 'Highlight...')" class="w-full py-2.5 px-4 bg-primary hover:bg-primaryHover text-white text-sm font-medium rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-offset-slate-800 flex items-center justify-center gap-2 mt-2"><i class="ph ph-plus"></i> Tambah Highlight</button>
+                </div>
+
+                <!-- Syukur -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">Yang Disyukuri</label>
+                    </div>
+                    <div id="syukur-container" class="space-y-2"></div>
+                    <button onclick="addInput('syukur', 'Saya bersyukur karena...')" class="w-full py-2.5 px-4 bg-primary hover:bg-primaryHover text-white text-sm font-medium rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-offset-slate-800 flex items-center justify-center gap-2 mt-2"><i class="ph ph-plus"></i> Tambah Syukur</button>
+                </div>
+
+                <!-- Evaluasi -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">Pelajaran / Evaluasi</label>
+                    </div>
+                    <div id="evaluasi-container" class="space-y-2"></div>
+                    <button onclick="addInput('evaluasi', 'Hal yang bisa diperbaiki...')" class="w-full py-2.5 px-4 bg-primary hover:bg-primaryHover text-white text-sm font-medium rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-offset-slate-800 flex items-center justify-center gap-2 mt-2"><i class="ph ph-plus"></i> Tambah Evaluasi</button>
+                </div>
+
+                <!-- Fokus -->
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">Fokus Besok</label>
+                    </div>
+                    <div id="fokus-container" class="space-y-2"></div>
+                    <button onclick="addInput('fokus', 'Besok saya akan fokus pada...')" class="w-full py-2.5 px-4 bg-primary hover:bg-primaryHover text-white text-sm font-medium rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-offset-slate-800 flex items-center justify-center gap-2 mt-2"><i class="ph ph-plus"></i> Tambah Fokus</button>
+                </div>
+
+                <!-- Catatan -->
+                <div class="space-y-3 md:col-span-2">
+                    <div class="flex items-center justify-between">
+                        <label class="block text-sm font-semibold text-slate-800 dark:text-slate-100">Catatan Tambahan</label>
+                    </div>
+                    <div id="catatan-container" class="space-y-2"></div>
+                    <button onclick="addInput('catatan', 'Catatan bebas...')" class="w-full py-2.5 px-4 bg-primary hover:bg-primaryHover text-white text-sm font-medium rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-offset-slate-800 flex items-center justify-center gap-2 mt-2"><i class="ph ph-plus"></i> Tambah Catatan</button>
+                </div>
+            </div>
+
+            <hr class="border-slate-200 dark:border-slate-700">
+            
+            <div class="flex flex-col gap-3">
+                <button id="btnGenerate" class="w-full py-3 px-4 bg-primary hover:bg-primaryHover text-white font-medium rounded-xl shadow-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-offset-slate-800 flex items-center justify-center gap-2 text-lg">
+                    <i class="ph ph-magic-wand"></i> Generate Journal
+                </button>
+                <button id="btnReset" class="w-full py-3 px-4 bg-danger/10 hover:bg-danger/20 text-danger dark:bg-red-500/10 dark:hover:bg-red-500/20 dark:text-red-400 font-medium rounded-xl transition-all focus:outline-none flex items-center justify-center gap-2">
+                    <i class="ph ph-trash"></i> Reset Data
+                </button>
+                <button id="btnScrollTop" class="w-full py-3 px-4 bg-primary/10 hover:bg-primary/20 text-primary dark:bg-green-500/10 dark:hover:bg-green-500/20 dark:text-green-400 font-medium rounded-xl transition-all focus:outline-none flex items-center justify-center gap-2">
+                    <i class="ph ph-arrow-up"></i> Kembali ke Atas
+                </button>
+            </div>
+        </div>
+
+        <div id="outputSection" class="hidden bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 sm:p-8 space-y-4">
+            <!-- SECTION: Judul Diary (Moved to top without extra layout changes) -->
+            <div>
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-semibold text-slate-800 dark:text-slate-100">Judul diary</h3>
+                    <button id="btnCopyTitle" class="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium transition-colors flex items-center gap-2">
+                        <i class="ph ph-copy"></i> Copy Judul
+                    </button>
+                </div>
+                <input type="text" id="outputDiaryTitle" readonly class="w-full px-4 py-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-mono text-sm focus:outline-none">
+            </div>
+
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-slate-800 dark:text-slate-100">Hasil Generate</h2>
+                <button id="btnCopy" class="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm font-medium transition-colors flex items-center gap-2">
+                    <i class="ph ph-copy"></i> Copy Text
+                </button>
+            </div>
+            
+            <div class="relative">
+                <textarea id="outputArea" readonly class="w-full h-80 p-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 font-mono text-sm focus:outline-none resize-y"></textarea>
+            </div>
+        </div>
+
+        <div class="text-center text-sm font-medium text-slate-400 dark:text-slate-500 mt-8 mb-4">
+            by @fianotion
+        </div>
+
+    </main>
+
+    <div id="confirmModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-xl max-w-sm w-full p-6 transform scale-95 transition-transform duration-300">
+            <div class="flex items-center gap-3 text-danger dark:text-red-400 mb-4">
+                <i class="ph ph-warning-circle text-3xl"></i>
+                <h3 class="text-lg font-bold">Konfirmasi Reset</h3>
+            </div>
+            <p class="text-slate-600 dark:text-slate-300 mb-6 text-sm">
+                Apakah Anda yakin ingin menghapus semua isian form dan hasil output? Data yang dihapus tidak dapat dikembalikan.
+            </p>
+            <div class="flex gap-3">
+                <button id="btnCancelReset" class="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-medium rounded-lg transition-colors">
+                    Batal
+                </button>
+                <button id="btnConfirmReset" class="flex-1 px-4 py-2 bg-danger hover:bg-dangerHover text-white font-medium rounded-lg transition-colors shadow-sm">
+                    Ya, Hapus
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const htmlDoc = document.documentElement;
+
+        // Initialize Theme from localStorage or default to Light
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'dark') {
+                htmlDoc.classList.add('dark');
+                themeIcon.classList.replace('ph-moon', 'ph-sun');
+            } else {
+                htmlDoc.classList.remove('dark');
+                themeIcon.classList.replace('ph-sun', 'ph-moon');
+            }
+        }
+        
+        themeToggle.addEventListener('click', () => {
+            htmlDoc.classList.toggle('dark');
+            const isDark = htmlDoc.classList.contains('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            
+            if (isDark) {
+                themeIcon.classList.replace('ph-moon', 'ph-sun');
+            } else {
+                themeIcon.classList.replace('ph-sun', 'ph-moon');
+            }
+        });
+
+        initTheme();
+
+        const moodContainer = document.getElementById('moodContainer');
+        const selectedMoodInput = document.getElementById('selectedMood');
+        const moodStars = ["", "⭐✰✰✰✰", "⭐⭐✰✰✰", "⭐⭐⭐✰✰", "⭐⭐⭐⭐✰", "⭐⭐⭐⭐⭐"];
+        const moodLabels = ["", "Sangat Buruk", "Buruk", "Biasa Saja", "Baik", "Sangat Baik"];
+
+        function renderMoodButtons() {
+            moodContainer.innerHTML = '';
+            for (let i = 1; i <= 5; i++) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                // Base classes
+                btn.className = `flex-1 min-w-[72px] sm:min-w-[90px] flex flex-col items-center justify-center p-2 sm:p-3 rounded-xl border-2 transition-all focus:outline-none 
+                    ${parseInt(selectedMoodInput.value) === i 
+                        ? 'border-primary bg-primary/10 dark:border-green-500 dark:bg-green-500/20 shadow-sm' 
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-primary/50 dark:hover:border-green-500/50'}`;
+                
+                btn.innerHTML = `
+                    <span class="text-xs sm:text-base md:text-xl mb-1 whitespace-nowrap tracking-tighter">${moodStars[i]}</span>
+                    <span class="text-[10px] sm:text-xs font-medium text-center leading-tight ${parseInt(selectedMoodInput.value) === i ? 'text-primary dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}">${moodLabels[i]}</span>
+                `;
+                
+                btn.onclick = () => {
+                    selectedMoodInput.value = i;
+                    renderMoodButtons(); // Re-render to update classes
+                };
+                moodContainer.appendChild(btn);
+            }
+        }
+        renderMoodButtons();
+
+        // Utility to generate unique ID
+        const generateId = () => Math.random().toString(36).substr(2, 9);
+
+        // Tambahkan parameter shouldFocus = true sebagai default
+        function addInput(category, placeholder, shouldFocus = true) {
+            const container = document.getElementById(`${category}-container`);
+            const inputId = `input-${generateId()}`;
+            
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-2 group';
+            div.id = inputId;
+            
+            div.innerHTML = `
+                <input type="text" placeholder="${placeholder}" class="dynamic-input-${category} flex-1 w-full min-w-0 px-4 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 focus:ring-2 focus:ring-primary outline-none transition-colors">
+                <button type="button" onclick="removeInput('${inputId}')" class="p-2 shrink-0 text-slate-400 hover:text-danger dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-danger/30" aria-label="Remove">
+                    <i class="ph ph-trash"></i>
+                </button>
+            `;
+            container.appendChild(div);
+            
+            // Fokus ke input baru hanya jika shouldFocus bernilai true
+            if (shouldFocus) {
+                div.querySelector('input').focus();
+            }
+        }
+
+        function removeInput(id) {
+            const el = document.getElementById(id);
+            if (el) el.remove();
+        }
+
+        // Initialize with 1 empty input each
+        function initLists() {
+            const categories = [
+                {id: 'highlight', p: 'Highlight hari ini...'},
+                {id: 'syukur', p: 'Saya bersyukur karena...'},
+                {id: 'evaluasi', p: 'Hal yang bisa diperbaiki...'},
+                {id: 'fokus', p: 'Besok saya akan fokus pada...'},
+                {id: 'catatan', p: 'Catatan bebas...'}
+            ];
+            categories.forEach(cat => {
+                document.getElementById(`${cat.id}-container`).innerHTML = '';
+                // Tambahkan parameter false agar tidak otomatis fokus saat inisialisasi awal
+                addInput(cat.id, cat.p, false);
+            });
+        }
+        initLists();
+
+        let energyInteracted = false; // Tambahkan deklarasi variabel ini secara global
+
+        const btnGenerate = document.getElementById('btnGenerate');
+        const outputSection = document.getElementById('outputSection');
+        const outputArea = document.getElementById('outputArea');
+
+        const hariIndo = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+        const bulanIndo = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+        const daysEn = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const monthsEn = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+        function formatDateTime(datetimeLocalString) {
+            if (!datetimeLocalString) return "";
+            
+            // Parse the string "YYYY-MM-DDTHH:mm"
+            const [datePart, timePart] = datetimeLocalString.split('T');
+            const [year, month, day] = datePart.split('-');
+            
+            // Return format DD/MM/YYYY HH:mm
+            return `${day}/${month}/${year} ${timePart}`;
+        }
+
+        function getListValues(category) {
+            const inputs = document.querySelectorAll(`.dynamic-input-${category}`);
+            const values = [];
+            inputs.forEach(input => {
+                if (input.value.trim() !== "") {
+                    values.push(input.value.trim());
+                }
+            });
+            return values;
+        }
+
+        btnGenerate.addEventListener('click', () => {
+            // Collect Data
+            const dateVal = document.getElementById('inputDate').value;
+            const energyVal = document.getElementById('inputEnergy').value;
+            const moodIndex = parseInt(selectedMoodInput.value);
+            
+            const story1 = document.getElementById('story1').value.trim() || "...";
+            const story2 = document.getElementById('story2').value.trim() || "...";
+            const story3 = document.getElementById('story3').value.trim() || "...";
+
+            const highlights = getListValues('highlight');
+            const syukurs = getListValues('syukur');
+            const evaluasis = getListValues('evaluasi');
+            const fokuses = getListValues('fokus');
+            const catatans = getListValues('catatan');
+
+            // Format Judul Diary
+            let diaryTitle = "Tanggal belum dipilih";
+            if (dateVal) {
+                const d = new Date(dateVal);
+                if (!isNaN(d.getTime())) {
+                    const dayIdx = d.getDay();
+                    const dateNum = d.getDate();
+                    const monthIdx = d.getMonth();
+                    const yearNum = d.getFullYear();
+                    
+                    const indoStr = `${dateNum} ${bulanIndo[monthIdx]} ${yearNum}, ${hariIndo[dayIdx]}`;
+                    const enStr = `${daysEn[dayIdx]}, ${monthsEn[monthIdx]} ${dateNum}, ${yearNum}`;
+                    diaryTitle = `${indoStr} | ${enStr}`;
+                }
+            }
+            document.getElementById('outputDiaryTitle').value = diaryTitle;
+
+            // Format Logic according to strict rules
+            let output = `Tanggal & Waktu (WIB) : ${formatDateTime(dateVal)}\n`;
+            
+            const moodStr = moodIndex > 0 ? moodStars[moodIndex] : "Belum diisi";
+            
+            let energyStr = "...";
+            let energyEmoji = "";
+            
+            // Cek interaksi slider energi dan tentukan emoji sesuai rentang
+            if (energyInteracted) {
+                energyStr = energyVal;
+                const numVal = parseInt(energyVal) || 0;
+                
+                if (numVal === 0) {
+                    energyEmoji = " ❌";
+                } else if (numVal <= 25) {
+                    energyEmoji = " ⚠️";
+                } else if (numVal <= 50) {
+                    energyEmoji = " 🪫";
+                } else if (numVal <= 75) {
+                    energyEmoji = " 🔋";
+                } else if (numVal <= 99) {
+                    energyEmoji = " ⚡";
+                } else if (numVal === 100) {
+                    energyEmoji = " 🌟";
+                }
+            }
+            
+            output += `Mood / Energi : \`${moodStr} / ${energyStr}%${energyEmoji} - Awalnya ${story1} kemudian ${story2} tapi akhirnya ${story3}.\`\n\n`;
+
+            output += `Highlight Hari Ini:\n`;
+            if (highlights.length === 0) output += `-\n`;
+            highlights.forEach((item, index) => {
+                output += `${index + 1}. ${item}\n`;
+            });
+
+            output += `\nYang Disyukuri:\n`;
+            if (syukurs.length === 0) output += `-\n`;
+            syukurs.forEach((item, index) => {
+                output += `${index + 1}. ${item}\n`;
+            });
+
+            output += `\nPelajaran / Evaluasi:\n`;
+            if (evaluasis.length === 0) output += `-\n`;
+            evaluasis.forEach((item) => {
+                output += `- ${item}\n`;
+            });
+
+            output += `\nFokus Besok:\n`;
+            if (fokuses.length === 0) output += `-\n`;
+            fokuses.forEach((item) => {
+                output += `- ${item}\n`;
+            });
+
+            output += `\nCatatan Tambahan:\n`;
+            if (catatans.length === 0) output += `-\n`;
+            catatans.forEach((item) => {
+                // Rule: wrap notes in backticks
+                output += `- \`${item}\`\n`;
+            });
+
+            // Display Output
+            outputArea.value = output.trim();
+            outputSection.classList.remove('hidden');
+            
+            // Pindahkan tombol "Kembali ke Atas" ke dalam area output
+            outputSection.appendChild(btnScrollTop);
+            
+            // Scroll to output
+            outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+
+        const btnCopy = document.getElementById('btnCopy');
+        btnCopy.addEventListener('click', () => {
+            outputArea.select();
+            document.execCommand('copy');
+            
+            // Visual feedback
+            const originalHTML = btnCopy.innerHTML;
+            btnCopy.innerHTML = '<i class="ph ph-check text-green-500"></i> Copied!';
+            setTimeout(() => {
+                btnCopy.innerHTML = originalHTML;
+            }, 2000);
+        });
+
+        const btnCopyTitle = document.getElementById('btnCopyTitle');
+        btnCopyTitle.addEventListener('click', () => {
+            const titleInput = document.getElementById('outputDiaryTitle');
+            titleInput.select();
+            document.execCommand('copy');
+            
+            const originalHTML = btnCopyTitle.innerHTML;
+            btnCopyTitle.innerHTML = '<i class="ph ph-check text-green-500"></i> Copied!';
+            setTimeout(() => {
+                btnCopyTitle.innerHTML = originalHTML;
+            }, 2000);
+        });
+
+        const btnReset = document.getElementById('btnReset');
+        const confirmModal = document.getElementById('confirmModal');
+        const modalContent = confirmModal.querySelector('div');
+        const btnCancelReset = document.getElementById('btnCancelReset');
+        const btnConfirmReset = document.getElementById('btnConfirmReset');
+
+        // Open Modal
+        btnReset.addEventListener('click', () => {
+            confirmModal.classList.remove('hidden');
+            // Slight delay to allow display:block to apply before animating opacity
+            setTimeout(() => {
+                confirmModal.classList.remove('opacity-0');
+                modalContent.classList.remove('scale-95');
+            }, 10);
+        });
+
+        // Close Modal Helper
+        function closeModal() {
+            confirmModal.classList.add('opacity-0');
+            modalContent.classList.add('scale-95');
+            setTimeout(() => {
+                confirmModal.classList.add('hidden');
+            }, 300); // match transition duration
+        }
+
+        btnCancelReset.addEventListener('click', closeModal);
+
+        // Fungsi Helper Update Pesan Energi
+        function updateEnergyMessage(val) {
+            const msgEl = document.getElementById('energyMessage');
+            if (!msgEl) return;
+            const numVal = parseInt(val) || 0;
+            
+            if (numVal === 0) {
+                msgEl.innerHTML = ' : <span class="energy-blink">Lelah total</span>';
+            } else if (numVal === 100) {
+                msgEl.innerHTML = ' : <span class="energy-neon">⚡ Energi super maksimum ⚡</span>';
+            } else if (numVal <= 25) {
+                msgEl.textContent = " : Sangat lelah, hampir tidak bertenaga ⚠️";
+            } else if (numVal <= 50) {
+                msgEl.textContent = " : Energi terbatas, masih bisa beraktivitas ringan 🪫";
+            } else if (numVal <= 75) {
+                msgEl.textContent = " : Energi cukup untuk menjalani aktivitas normal 🔋";
+            } else {
+                msgEl.textContent = " : Bersemangat, produktif, dan penuh tenaga ⚡";
+            }
+        }
+
+        // Fungsi untuk menambah/mengurangi energi dari tombol
+        function adjustEnergy(amount) {
+            const energyInput = document.getElementById('inputEnergy');
+            const energyValueDisplay = document.getElementById('energyValue');
+            
+            let currentVal = parseInt(energyInput.value) || 0;
+            let newVal = currentVal + amount;
+            
+            // Pastikan nilai tidak kurang dari 0 atau lebih dari 100
+            if (newVal < 0) newVal = 0;
+            if (newVal > 100) newVal = 100;
+            
+            energyInput.value = newVal;
+            energyValueDisplay.textContent = `${newVal}%`;
+            updateEnergyMessage(newVal);
+            
+            // Tandai bahwa energi sudah disentuh/diubah
+            energyInteracted = true;
+        }
+
+        // Fungsi khusus untuk mengatur ke nilai energi tertentu (misal: 50%)
+        function setEnergy(value) {
+            const energyInput = document.getElementById('inputEnergy');
+            const energyValueDisplay = document.getElementById('energyValue');
+            
+            energyInput.value = value;
+            energyValueDisplay.textContent = `${value}%`;
+            updateEnergyMessage(value);
+            
+            energyInteracted = true;
+        }
+
+        // Execute Reset
+        btnConfirmReset.addEventListener('click', () => {
+            // Reset standard inputs
+            document.getElementById('inputDate').value = '';
+            
+            // Reset Energy ke Default
+            document.getElementById('inputEnergy').value = '50';
+            document.getElementById('energyValue').textContent = '50%';
+            updateEnergyMessage(50);
+            
+            document.getElementById('selectedMood').value = '0';
+            renderMoodButtons(); // update UI
+            
+            document.getElementById('story1').value = '';
+            document.getElementById('story2').value = '';
+            document.getElementById('story3').value = '';
+
+            // Reset dynamic lists
+            initLists();
+            
+            // Reset interaksi slider energi
+            energyInteracted = false;
+
+            // Clear Output
+            outputArea.value = '';
+            document.getElementById('outputDiaryTitle').value = '';
+            outputSection.classList.add('hidden');
+
+            // Kembalikan posisi tombol "Kembali ke Atas" ke bawah tombol Reset
+            document.getElementById('btnReset').parentElement.appendChild(btnScrollTop);
+
+            closeModal();
+            
+            // Scroll back to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        
+        const inputEnergy = document.getElementById('inputEnergy');
+        const energyValueDisplay = document.getElementById('energyValue');
+        
+        inputEnergy.addEventListener('input', (e) => {
+            energyValueDisplay.textContent = `${e.target.value}%`;
+            updateEnergyMessage(e.target.value);
+            
+            // Pastikan pergerakan slider manual juga terdeteksi
+            energyInteracted = true;
+        });
+
+        // Event listener untuk tombol scroll ke atas
+        const btnScrollTop = document.getElementById('btnScrollTop');
+        btnScrollTop.addEventListener('click', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+
+        // Event listener untuk scroll ke bawah saat klik icon buku
+        const btnScrollBottom = document.getElementById('btnScrollBottom');
+        btnScrollBottom.addEventListener('click', () => {
+            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+        });
+
+        // Menjalankan jam Real-Time Digital
+        function updateRealTimeClock() {
+            const now = new Date();
+            const dayName = hariIndo[now.getDay()];
+            
+            // Format mm, dd, yyyy
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const yyyy = now.getFullYear();
+            
+            // Format jam, menit, detik (24 jam)
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            // Menyusun format akhir: Hari mm/dd/yyyy jam:menit:detik
+            const clockString = `${dayName} ${mm}/${dd}/${yyyy} ${hours}:${minutes}:${seconds}`;
+            
+            const clockElement = document.getElementById('realTimeClock');
+            if(clockElement) {
+                clockElement.textContent = clockString;
+            }
+        }
+        
+        // Perbarui setiap detik
+        setInterval(updateRealTimeClock, 1000);
+        updateRealTimeClock(); // Panggil sekali langsung agar tidak menunggu 1 detik pertama
+
+        // =============================================
+        // AUTO-SAVE DRAFT
+        // =============================================
+        const DRAFT_KEY = 'dailyJournal_draft';
+        let autoSaveTimer = null;
+        const autoSaveBadge  = document.getElementById('autoSaveBadge');
+        const autoSaveIcon   = document.getElementById('autoSaveIcon');
+        const autoSaveText   = document.getElementById('autoSaveText');
+
+        function showBadge(state) {
+            // state: 'saving' | 'saved'
+            autoSaveBadge.classList.remove('hidden-fade', 'saving', 'saved');
+            if (state === 'saving') {
+                autoSaveBadge.classList.add('saving');
+                autoSaveBadge.style.cssText = 'color:#94a3b8;background:transparent;';
+                autoSaveIcon.className = 'ph ph-cloud-arrow-up text-sm animate-pulse';
+                autoSaveText.textContent = 'Menyimpan...';
+            } else {
+                autoSaveBadge.classList.add('saved');
+                autoSaveBadge.style.cssText = 'color:#1db954;background:transparent;';
+                autoSaveIcon.className = 'ph ph-cloud-check text-sm';
+                autoSaveText.textContent = 'Draft tersimpan';
+                // Fade out setelah 3 detik
+                setTimeout(() => {
+                    autoSaveBadge.classList.add('hidden-fade');
+                }, 3000);
+            }
+        }
+
+        function collectDraft() {
+            const highlights = [];
+            document.querySelectorAll('.dynamic-input-highlight').forEach(el => highlights.push(el.value));
+            const syukurs = [];
+            document.querySelectorAll('.dynamic-input-syukur').forEach(el => syukurs.push(el.value));
+            const evaluasis = [];
+            document.querySelectorAll('.dynamic-input-evaluasi').forEach(el => evaluasis.push(el.value));
+            const fokuses = [];
+            document.querySelectorAll('.dynamic-input-fokus').forEach(el => fokuses.push(el.value));
+            const catatans = [];
+            document.querySelectorAll('.dynamic-input-catatan').forEach(el => catatans.push(el.value));
+
+            return {
+                date:       document.getElementById('inputDate').value,
+                energy:     document.getElementById('inputEnergy').value,
+                mood:       document.getElementById('selectedMood').value,
+                story1:     document.getElementById('story1').value,
+                story2:     document.getElementById('story2').value,
+                story3:     document.getElementById('story3').value,
+                highlights,
+                syukurs,
+                evaluasis,
+                fokuses,
+                catatans,
+                savedAt:    new Date().toISOString()
+            };
+        }
+
+        function saveDraft() {
+            try {
+                localStorage.setItem(DRAFT_KEY, JSON.stringify(collectDraft()));
+                showBadge('saved');
+            } catch(e) {
+                console.warn('Auto-save gagal:', e);
+            }
+        }
+
+        function scheduleSave() {
+            showBadge('saving');
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(saveDraft, 800); // debounce 800ms
+        }
+
+        function restoreDraft() {
+            const raw = localStorage.getItem(DRAFT_KEY);
+            if (!raw) return;
+            let draft;
+            try { draft = JSON.parse(raw); } catch(e) { return; }
+            if (!draft) return;
+
+            // Restore simple inputs
+            if (draft.date)   document.getElementById('inputDate').value = draft.date;
+            if (draft.energy) {
+                document.getElementById('inputEnergy').value = draft.energy;
+                document.getElementById('energyValue').textContent = `${draft.energy}%`;
+                updateEnergyMessage(draft.energy);
+                if (draft.energy !== '50') energyInteracted = true;
+            }
+            if (draft.mood && parseInt(draft.mood) > 0) {
+                document.getElementById('selectedMood').value = draft.mood;
+                renderMoodButtons();
+            }
+            if (draft.story1) document.getElementById('story1').value = draft.story1;
+            if (draft.story2) document.getElementById('story2').value = draft.story2;
+            if (draft.story3) document.getElementById('story3').value = draft.story3;
+
+            // Restore dynamic lists (helper)
+            function restoreList(category, placeholder, values) {
+                if (!values || values.length === 0) return;
+                const container = document.getElementById(`${category}-container`);
+                container.innerHTML = '';
+                values.forEach((val) => {
+                    addInput(category, placeholder, false);
+                    const inputs = container.querySelectorAll(`input`);
+                    inputs[inputs.length - 1].value = val;
+                });
+            }
+
+            restoreList('highlight', 'Highlight hari ini...',       draft.highlights  || []);
+            restoreList('syukur',    'Saya bersyukur karena...',    draft.syukurs     || []);
+            restoreList('evaluasi',  'Hal yang bisa diperbaiki...', draft.evaluasis   || []);
+            restoreList('fokus',     'Besok saya akan fokus pada...',draft.fokuses    || []);
+            restoreList('catatan',   'Catatan bebas...',            draft.catatans    || []);
+
+            // Show saved badge briefly
+            if (draft.savedAt) {
+                const when = new Date(draft.savedAt);
+                autoSaveBadge.classList.remove('hidden-fade');
+                autoSaveBadge.style.cssText = 'color:#64748b;background:transparent;';
+                autoSaveIcon.className = 'ph ph-clock-clockwise text-sm';
+                autoSaveText.textContent = `Draft dipulihkan`;
+                autoSaveBadge.title = `Terakhir disimpan: ${when.toLocaleString('id-ID')}`;
+                setTimeout(() => { autoSaveBadge.classList.add('hidden-fade'); }, 4000);
+            }
+        }
+
+        // Attach auto-save listeners to all static inputs
+        ['inputDate','story1','story2','story3'].forEach(id => {
+            document.getElementById(id).addEventListener('input', scheduleSave);
+            document.getElementById(id).addEventListener('change', scheduleSave);
+        });
+        document.getElementById('inputEnergy').addEventListener('input', scheduleSave);
+        // Mood buttons trigger re-render; patch renderMoodButtons to also schedule save
+        const _origRenderMood = renderMoodButtons;
+        window.renderMoodButtons = function() {
+            _origRenderMood();
+            // Don't save on initial render (before DOM ready)
+            if (document.readyState === 'complete') scheduleSave();
+        };
+        // Listen for dynamic list changes via event delegation
+        document.getElementById('highlight-container').addEventListener('input', scheduleSave);
+        document.getElementById('syukur-container').addEventListener('input', scheduleSave);
+        document.getElementById('evaluasi-container').addEventListener('input', scheduleSave);
+        document.getElementById('fokus-container').addEventListener('input', scheduleSave);
+        document.getElementById('catatan-container').addEventListener('input', scheduleSave);
+
+        // Also save when dynamic inputs are added/removed
+        const _origAddInput = addInput;
+        window.addInput = function(category, placeholder, shouldFocus = true) {
+            _origAddInput(category, placeholder, shouldFocus);
+            if (shouldFocus) scheduleSave(); // only save on user-triggered adds
+        };
+        const _origRemoveInput = removeInput;
+        window.removeInput = function(id) {
+            _origRemoveInput(id);
+            scheduleSave();
+        };
+
+        // Clear draft on reset (listener runs after the existing reset handler above)
+        btnConfirmReset.addEventListener('click', () => {
+            localStorage.removeItem(DRAFT_KEY);
+            energyInteracted = false;
+            autoSaveBadge.classList.add('hidden-fade');
+        });
+
+        // Restore on load
+        restoreDraft();
+
+        // =============================================
+        // PWA: SERVICE WORKER + INSTALL PROMPT
+        // =============================================
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW registered:', reg.scope))
+                .catch(err => console.warn('SW registration failed:', err));
+        }
+
+        let deferredInstallPrompt = null;
+        const btnInstallPWA = document.getElementById('btnInstallPWA');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredInstallPrompt = e;
+            btnInstallPWA.style.display = 'block'; // Show install button
+        });
+
+        btnInstallPWA.addEventListener('click', async () => {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            const { outcome } = await deferredInstallPrompt.userChoice;
+            if (outcome === 'accepted') {
+                btnInstallPWA.style.display = 'none';
+            }
+            deferredInstallPrompt = null;
+        });
+
+        window.addEventListener('appinstalled', () => {
+            btnInstallPWA.style.display = 'none';
+            deferredInstallPrompt = null;
+        });
+
+    </script>
+</body>
+</html>
